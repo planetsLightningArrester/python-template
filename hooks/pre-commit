@@ -1,0 +1,42 @@
+#!/bin/bash
+
+echo "Validating your commit. Please wait..."
+
+# what are the files being commited?
+linter_failed=false
+formatter_failed=false
+while IFS= read -r file; do
+    if [[ "$file" = *.py ]]; then
+        linter_result=$(python3 -m pylint --fail-under 10 --rcfile .vscode/.pylintrc "$file" 2>&1)
+        test "$?" -gt 0 && _linter_failed=true
+
+        if [[ $_linter_failed = true ]]; then
+            echo "[PYLINT] File '$file' doesn't match 'pylint' style"
+            echo "$linter_result"
+            echo
+            linter_failed=true
+        fi
+
+        formatter_result=$(python3 -m black --check --diff --color "$file" 2>&1)
+        test "$?" -gt 0 && _formatter_failed=true
+
+        if [[ "$_formatter_failed" = true ]]; then
+            echo "[BLACK] File '$file' doesn't match 'black' style"
+            echo "$formatter_result"
+            formatter_failed=true
+        fi
+
+    fi
+done < <(git diff --name-only --cached --diff-filter=d)
+
+if [[ $linter_failed = true ]] || [[ $formatter_failed = true ]]; then
+    exit 1
+fi
+
+# linter => pylint
+# python3 -m pylint --fail-under 10 --rcfile .vscode/.pylintrc main.py
+
+# format => black
+# python3 -m black --check --diff --color main.py
+
+echo "Commit validated"
